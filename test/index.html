@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -30,8 +30,14 @@
 
     <p>"I never thought of that!" said Dorothy joyfully.  "It's just the thing.  I'll go at once for the Golden Cap."</p>
   </div>
-  <!-- /article-content -->
-  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js"></script>
+
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
   <script src="../js/emphasis-src.js"></script>
+    <script>
+        $( function ()
+        {
+            $( "p" ).emphasisAnchors();
+        } );
+    </script>
 </body>
 </html>

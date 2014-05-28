@@ -1,527 +1,304 @@
 /*  --------------------------------------------------
 
-    Emphasis
-    by Michael Donohoe (@donohoe)
-    https://github.com/NYTimes/Emphasis
-    http://open.blogs.nytimes.com/2011/01/10/emphasis-update-and-source/
+Emphasis
+by Michael Donohoe (@donohoe)
+https://github.com/NYTimes/Emphasis
+http://open.blogs.nytimes.com/2011/01/10/emphasis-update-and-source/
     
-    - - - - - - - - - -
+- - - - - - - - - -
 
-    jQueryized by Rob Flaherty (@ravelrumba)
-    https://github.com/robflaherty/Emphasis
+jQueryized by Rob Flaherty (@ravelrumba)
+https://github.com/robflaherty/Emphasis
 
-    - - - - - - - - - -
+- - - - - - - - - -
 
-    Copyright (C) 2011 The New York Times (http://www.nytimes.com)
+Trimmed from the original NYT version to just support anchoring without highlighting
+Substantial refactoring to take advantage of jQuery
+https://github.com/jrit/Emphasis-Anchors
 
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
+--------
+
+
+Copyright (C) 2011 The New York Times (http://www.nytimes.com)
+Copyright (C) 2014 Jarrett Widman
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
     
-    The above copyright notice and this permission notice shall be included in
-    all copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
     
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
-    -------------------------------------------------- */
+-------------------------------------------------- */
 
-jQuery(function($) {
-var Emphasis = {
-    init: function() {
-        this.config();
-        this.pl = false; // Paragraph List
-        this.p  = false; // Paragraph Anchor
-        this.h  = false; // Highlighted paragraphs
-        this.s  = false; // Highlighted sentences
-        this.vu = false; // Are paragraph links visible or not
-        this.kh = "|";
+( function ( $ )
+{
+	"use strict";
 
-        this.addCSS();
-        this.readHash();
-        
-        $(document).bind('keydown', this.keydown);                
-    },
+	var util = {
+		
+		/*
+		 * Read and interpret the URL hash
+		 */
+		getHashKey: function ()
+		{
+			var hash = decodeURI( location.hash );
+			var findp = hash.match( /(paragraph[^[\]]*)/ );
+			var key = ( findp && findp.length > 0 ) ? findp[1] : false;
+			return ( key );
+		},
 
-    config: function() {
-    /*
-        Eligible Paragraphs
-        This uses some common markup for plain and simple paragraphs - those that are not empty, no classes.
-        We use PrototypeJS for its css selector awesomeness, but your needs might be simpler (getElementsByTagName('p') etc.)
-    */
-        this.paraSelctors      = $('#article-content p');
+		/*  Break a Paragraph into Sentences, bearing in mind that the "." is not the definitive way to do so */
+		getSentences: function ( el )
+		{
+			var html = ( typeof el === "string" ) ? el : el.innerHTML,
+				mrsList = "Mr,Ms,Mrs,Miss,Msr,Dr,Gov,Pres,Sen,Prof,Gen,Rep,St,Messrs,Col,Sr,Jf,Ph,Sgt,Mgr,Fr,Rev,No,Jr,Snr",
+				topList = "A,B,C,D,E,F,G,H,I,J,K,L,M,m,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,etc,oz,cf,viz,sc,ca,Ave,St",
+				geoList = "Calif,Mass,Penn,AK,AL,AR,AS,AZ,CA,CO,CT,DC,DE,FL,FM,GA,GU,HI,IA,ID,IL,IN,KS,KY,LA,MA,MD,ME,MH,MI,MN,MO,MP,MS,MT,NC,ND,NE,NH,NJ,NM,NV,NY,OH,OK,OR,PA,PR,PW,RI,SC,SD,TN,TX,UT,VA,VI,VT,WA,WI,WV,WY,AE,AA,AP,NYC,GB,IRL,IE,UK,GB,FR",
+				numList = "0,1,2,3,4,5,6,7,8,9",
+				webList = "aero,asia,biz,cat,com,coop,edu,gov,info,int,jobs,mil,mobi,museum,name,net,org,pro,tel,travel,xxx",
+				extList = "www",
+				d = "__DOT__",
 
-    //  Class names
-        this.classReady        = "emReady";
-        this.classActive       = "emActive";
-        this.classHighlight    = "emHighlight";
-        this.classInfo         = "emInfo";
-        this.classAnchor       = "emAnchor";
-        this.classActiveAnchor = "emActiveAnchor";
-    },
+				list = ( topList + "," + geoList + "," + numList + "," + extList ).split( "," ),
+				len = list.length,
+				i, lines;
 
-    addCSS: function() {
-    /*  Inject the minimum styles rules required */
-        var st = document.createElement('style');
-        st.setAttribute('type', 'text/css');
-        /* for validation goodness */
-        var stStr = 'p.' + this.classActive + ' span { background-color:#f2f4f5; } p span.' + this.classHighlight + ' { background-color:#fff0b3; } span.' + this.classInfo + ' { position:absolute; margin:-1px 0px 0px -8px; padding:0; font-size:10px; background-color: transparent !important} span.' + this.classInfo + ' a { text-decoration: none; } a.' + this.classActiveAnchor + ' { color: #000; font-size: 11px; }';
-        try {
-        /* try the sensible way */
-          st.innerHTML = stStr;
-        } catch(e) {
-        /* IE's way */
-          st.styleSheet.cssText = stStr;
-        }
-        document.getElementsByTagName("head")[0].appendChild(st);
-    },
+			for ( i = 0; i < len; i++ )
+			{
+				html = html.replace( new RegExp(( " " + list[i] + "\\." ), "g" ), ( " " + list[i] + d ) );
+			}
 
-    readHash: function() {
-    /*  Read and interpret the URL hash */
-        var lh = decodeURI(location.hash),
-          p  = false,
-          h = [],
-          s = {},
-          a, re, f, r, i, findp, findh, undef, hi, key, pos, b, j;
-          
+			list = ( mrsList + "," + numList ).split( "," );
+			len = list.length;
+			for ( i = 0; i < len; i++ )
+			{
+				html = html.replace( new RegExp(( list[i] + "\\." ), "g" ), ( list[i] + d ) );
+			}
 
-        if (lh.indexOf('[')<0 && lh.indexOf(']')<0) {
-        /*  Version 1 Legacy support
-            #p20h4s2,6,10,h6s5,1 -> p = 20, h = [ 4, 6 ], s = { "4": [ 2, 6, 10 ] , "6": [ 5, 1 ] }
-        */
-            re = /[ph][0-9]+|s[0-9,]+|[0-9]/g;
-            if (lh) {
-                while ((a = re.exec(lh)) !== null) {
-                    f = a[0].substring(0, 1);
-                    r = a[0].substring(1);
-                    if (f === 'p') {
-                        p = parseInt(r, 10);
-                    } else if (f === 'h') {
-                        h.push(parseInt(r, 10));
-                    } else {
-                        a = r.split(',');
-                        for (i = 0; i < a.length; i++) {
-                            a[i] = parseInt(a[i], 10);
-                        }
-                        s[h[h.length - 1]] = a;
-                    }
-                }
-            }
-        } else {
-        /*  Version 2
-            #h[tbsaoa,Sstaoo,2,4],p[FWaadw] -> p = "FWaadw", h = [ "tbsaoa", "Sstaoo" ], s = { "Sstaoo" : [ 2, 4 ] }
-        */
-            findp = lh.match(/p\[([^[\]]*)\]/);
-            findh = lh.match(/h\[([^[\]]*)\]/);
+			list = ( webList ).split( "," );
+			len = list.length;
+			for ( i = 0; i < len; i++ )
+			{
+				html = html.replace( new RegExp(( "\\." + list[i] ), "g" ), ( d + list[i] ) );
+			}
 
-            p  = (findp && findp.length>0) ? findp[1] : false;
-            hi = (findh && findh.length>0) ? findh[1] : false;
+			lines = this.cleanArray( html.split( '. ' ) );
+			return lines;
+		},
 
-            if (hi) {
-                hi = hi.match(/[a-zA-Z]+(,[0-9]+)*/g);
-                for (i = 0; i < hi.length; i++) {
-                    a   = hi[i].split(',');
-                    key = a[0];
-                    pos = this.findKey(key).index;
+		ordinal: function ( n )
+		{
+			var sfx = ["th", "st", "nd", "rd"];
+			var val = n % 100;
+			return n + ( sfx[( val - 20 ) % 10] || sfx[val] || sfx[0] );
+		},
 
-                    if (pos !== undef) {
-                        h.push(parseInt(pos, 10)+1);
-                        b = a;
-                        b.shift();
-                        if (b.length>0) {
-                            for (j=1; j<b.length; j++) {
-                                b[j] = parseInt(b[j], 10);
-                            }
-                        }
-                        s[h[h.length - 1]] = b;
-                    }
-                }
-            }
-        }
+		/*  Get the Levenshtein distance - a measure of difference between two sequences */
+		lev: function ( a, b )
+		{
+			var m = a.length,
+				n = b.length,
+				r = [],
+				c, o, i, j;
 
-        this.p = p; this.h = h; this.s = s;
+			r[0] = [];
 
-        this.goAnchor(p);
-        this.goHighlight(h, s);
-    },
+			if ( m < n ) { c = a; a = b; b = c; o = m; m = n; n = o; }
+			for ( c = 0; c < n + 1; c++ ) { r[0][c] = c; }
+			for ( i = 1; i < m + 1; i++ )
+			{
+				r[i] = [];
+				r[i][0] = i;
+				for ( j = 1; j < n + 1; j++ )
+				{
+					r[i][j] = this.smallest( r[i - 1][j] + 1, r[i][j - 1] + 1, r[i - 1][j - 1] + ( ( a.charAt( i - 1 ) === b.charAt( j - 1 ) ) ? 0 : 1 ) );
+				}
+			}
+			return r[m][n];
+		},
 
-    keydown: function(e){
-    /*  Look for double-shift keypress */
-        var self = Emphasis,
-          kc = e.keyCode;
-        
-        self.kh  = self.kh + kc + '|';
-        if (self.kh.indexOf('|16|16|')>-1) {
-            self.vu = (self.vu) ? false : true;
-            self.paragraphInfo(self.vu);
-        }
-        setTimeout(function(){ self.kh = '|'; }, 500);
-    },
+		/*  Return smallest of two values */
+		smallest: function ( x, y, z )
+		{
+			if ( x < y && x < z ) { return x; }
+			if ( y < x && y < z ) { return y; }
+			return z;
+		},
 
-    paragraphList: function() {
-    /*  Build a list of Paragrphs, keys, and add meta-data to each Paragraph in DOM, saves list for later re-use */
-        if (this.pl && this.pl.list.length > 0) {
-          return this.pl;
-        }
-        var instance = this,
-          list = [],
-          keys = [],
-          c    = 0,
-          len  = this.paraSelctors.length,
-          p, pr, k;
+		/*  Trim whitespace from right of string */
+		rtrim: function ( txt )
+		{
+			return txt.replace( /\s+$/, "" );
+		},
 
-        for (p=0; p<len; p++) {
-            pr = this.paraSelctors[p];
-            if ((pr.innerText || pr.textContent || "").length>0) {
-                k = instance.createKey(pr);
-                list.push(pr);
-                keys.push(k);
-                pr.setAttribute("data-key", k); // Unique Key
-                pr.setAttribute("data-num", c); // Order
+		/*  Remove empty items from an array */
+		cleanArray: function ( a )
+		{
+			var n = [];
+			for ( var i = 0; i < a.length; i++ )
+			{
+				if ( a[i] && a[i].replace( / /g, '' ).length > 0 )
+				{
+					n.push( a[i] );
+				}
+			}
+			return n;
+		}
+	};
 
-                $(pr).bind('click', function(e) {
-                  instance.paragraphClick(e);
-                });
-                c++;
-            }
-        }
+	$.fn.emphasisAnchors = function ( options )
+	{
+		/*
+		 * Build a list of Paragrphs, keys, and add meta-data to each Paragraph in DOM, saves list for later re-use 
+		 */
+		var paragraphList = function ()
+		{
+			var $existing = $( "[" + settings.dataKeyAttribute + "]" );
+			if ( $existing.length )
+			{
+				return $existing;
+			}
 
-        this.pl = { list: list, keys: keys };
-        return this.pl;
-    },
+			createAllKeys();
 
-    paragraphClick: function(e) {
-    /*  Clicking a Paragrsph has consequences for Highlighting, selecting and changing active Anchor */
-        if (!this.vu) { return; }
+			return $( "[" + settings.dataKeyAttribute + "]" );
+		};
 
-        var hasChanged = false,
-          pr = (e.currentTarget.nodeName === "P") ? e.currentTarget : false, // Paragraph
-          $pr = $(pr),
-          sp = (e.target.nodeName === "SPAN")     ? e.target        : false, // Span
-          an = (e.target.nodeName === "A")        ? e.target        : false, // Anchor
-          lines, jLen, j, txt, chr;
+		/*
+		 * Generate keys for all the paragraphs
+		 */
+		var createAllKeys = function ()
+		{
+			var created = 0;
+			$paragraphs.each( function ()
+			{
+				var $pr = $( this );
+				if ( ( $pr.text() || "" ).replace( / /g, "" ).length > 0 )
+				{
+					$pr.attr( settings.dataKeyAttribute, createKey( $pr ) ); // Unique Key
+					$pr.attr( settings.dataOrdinalAttribute, created ); // Order
+					created++;
+				}
+			} );
+		};
 
-        if (an) {
-        /*  Click an Anchor link */
-            if (!$(an).hasClass(this.classActiveAnchor)) {
-                this.updateAnchor(an);
-                hasChanged = true;
-                e.preventDefault();
-            }
-        }
+		/*
+		 * From a Paragraph, generate a Key
+		 */
+		var createKey = function ( $p )
+		{
+			var key = "",
+				len = 6,
+				txt = ( $p.text() || '' ).replace( /[^a-z\. ]+/gi, '' ),
+				lines, first, last, k, max, i;
 
-        if (!pr && !sp) {
-            this.removeClass(this.classActive);
-            return;
-        }
+			if ( txt && txt.length > 1 )
+			{
+				lines = util.getSentences( txt );
+				if ( lines.length > 0 )
+				{
+					first = util.cleanArray( lines[0].replace( /[\s\s]+/gi, ' ' ).split( ' ' ) ).slice( 0, ( len / 2 ) );
+					last = util.cleanArray( lines[lines.length - 1].replace( /[\s\s]+/gi, ' ' ).split( ' ' ) ).slice( 0, ( len / 2 ) );
+					k = first.concat( last );
 
-        if ($pr.hasClass(this.classReady)) {
-            if (!$pr.hasClass(this.classActive) && (sp && !$(sp).hasClass(this.classHighlight))) {
-            //  If not current Active p tag, clear any others out there and make this the Active p tag
-                $(this).removeClass(this.classActive);
-                $pr.addClass(this.classActive); // Mark as Active
-            } else {
-                if (!$pr.hasClass(this.classActive)) {
-                    $(this).removeClass(this.classActive);
-                    $pr.addClass(this.classActive); // Mark as Active
-                }
+					max = ( k.length > len ) ? len : k.length;
+					for ( i = 0; i < max; i++ )
+					{
+						key += k[i].substring( 0, 1 );
+					}
+				}
+			}
+			return ( "paragraph" + key );
+		};
 
-                if (sp) {
-                    $(sp).toggleClass(this.classHighlight);
-                    hasChanged = true;
-                }
-            }
-        } else {
-        //  Add span tags to all Sentences within Paragraph and mark Paragraph as Ready
-            lines = this.getSentences(pr);
-            jLen  = lines.length;
+		/*
+		 * From a list of Keys, locate the Key and corresponding Paragraph
+		 */
+		var findKey = function ( key )
+		{
+			var $pl = paragraphList();
+			var ln = $pl.length;
 
-            for (j=0; j<jLen; j++) {
-                lines[j] = "<span data-num='" + (j+1) + "'>" + this.rtrim(lines[j]) + "</span>";
-            }
+			var $existing = $( "[" + settings.dataKeyAttribute + "='" + key + "']" );
 
-            txt = lines.join('. ').replace(/__DOT__/g, ".").replace(/<\/span>\./g, ".<\/span>");
-            chr = txt.substring(txt.length-8).charCodeAt(0);
-            if ("|8221|63|46|41|39|37|34|33|".indexOf(chr) === -1) { txt += "."; }
+			if ( $existing.length )
+			{
+				return ( $existing );
+			}
 
-            pr.innerHTML = txt;
-            pr.setAttribute('data-sentences', jLen);
+			var nearKey = key.replace( /paragraph/, "" );
 
-            $(this).removeClass(this.classActive);
-            $pr.addClass(this.classActive); // Mark as Active
-            $pr.addClass(this.classReady);  // Mark as Ready
-            hasChanged = true;
-        }
+			$pl.each( function ()
+			{
+				var localKey = $( this ).attr( settings.dataKeyAttribute ).replace( /paragraph/, "" );
 
-        if (hasChanged) {
-            this.updateURLHash();
-        }
-    },
+				var ls = util.lev( nearKey.slice( 0, 3 ), localKey.slice( 0, 3 ) );
+				var le = util.lev( nearKey.slice( -3 ), localKey.slice( -3 ) );
 
-    paragraphInfo: function(mode) {
-    /*  Toggle anchor links next to Paragraphs */
-      var hasSpan, pl, len, i, para, key, isActive, spans;
-      
-        if (mode) {
-            hasSpan = $('span.' + this.classInfo);
-            if (hasSpan.length === 0) {
-                pl  = this.paragraphList();
-                len = pl.list.length;
-                for (i=0; i<len; i++) {
-                    para = pl.list[i] || false;
-                    if (para) {
-                        key        = pl.keys[i];
-                        isActive   = (key===this.p) ? (" " + this.classActiveAnchor) : "";
-                        para.innerHTML = "<span class='" + this.classInfo + "'><a class='"+ this.classAnchor + isActive + "' href='#p[" + key + "]' data-key='" + key + "' title='Link to " + this.ordinal(i+1) + " paragraph'>&para;</a></span>" + para.innerHTML;
-                    }
-                }
-            }
-        } else {
-            spans = $('span.' + this.classInfo);
+				if ( ( ls + le ) < 3 )
+				{
+					$existing = $( this );
+					return ( false );
+				}
+			} );
 
-            len = spans.length;
-            for (i=0; i<len; i++) {
-                $(spans[i]).remove();
-            }
-            $(this).removeClass(this.classActive);
-        }
-    },
+			return ( $existing );
+		};
 
-    updateAnchor: function(an) {
-    /*  Make this A tag the one and only Anchor */
-        this.p = an.getAttribute("data-key");
-        $(this).removeClass(this.classActiveAnchor);
-        $(an).addClass(this.classActiveAnchor);
-    },
+		/*  
+			* Move view to top of a given Paragraph 
+			*/
+		var goAnchor = function ( $p )
+		{
+			if ( $p && $p.length )
+			{
+				setTimeout( function ()
+				{
+					var shiftDown = 80;
+					$( window ).scrollTop( $p.offset().top - shiftDown );
+					$p.addClass( settings.anchorTargetClass );
 
-    updateURLHash: function() {
-    /*  Scan the Paragraphs, note selections, highlights and update the URL with the new Hash */
-        var h     = "h[",
-          paras = $('p.emReady'),
-          pLen  = paras.length,
-          p, key, spans, sLen, nSent, anchor, hash,s;
+					if ( typeof ( settings.onMovedToAnchor ) === "function" )
+					{
+						settings.onMovedToAnchor();
+					}
 
-        for (p=0; p < pLen; p++) {
-            key = paras[p].getAttribute("data-key");
-            if ($(paras[p]).hasClass(this.classHighlight)) {
-                h += "," + key; // Highlight full paragraph
-            } else {
-                spans = $('span.' + this.classHighlight, paras[p]);
-                sLen  = spans.length;
-                nSent = paras[p].getAttribute("data-sentences");
+				}, 500 );
+			}			
+		};
 
-                if (sLen>0) { h += "," + key; }
 
-                if (nSent!==sLen) {
-                    for (s=0; s<sLen; s++) {
-                        h += "," + spans[s].getAttribute("data-num");
-                    }
-                }
-            }
-        }
+		var settings = $.extend( {
+			dataKeyAttribute: "data-emphasis-key",
+			dataOrdinalAttribute: "data-emphasis-ord",
+			anchorTargetClass: "emphasis-target",
+			onMovedToAnchor: Function.prototype,
+			onEmphasisDone: Function.prototype
+		}, options );
 
-        anchor    = ((this.p) ? "p[" + this.p + "]," : "");
-        hash      = (anchor + (h.replace("h[,", "h[") + "]")).replace(",h[]", "");
-        location.hash = hash;
-    },
+		var $paragraphs = $( this );
 
-    createKey: function(p) {
-    /*  From a Paragraph, generate a Key */
-        var key = "",
-          len = 6,
-          txt = (p.innerText || p.textContent || '').replace(/[^a-z\. ]+/gi, ''),
-          lines, first, last, k, max, i;
-        
-        if (txt && txt.length>1) {
+		createAllKeys();
+		goAnchor( findKey( util.getHashKey() ) );
 
-            lines = this.getSentences(txt);
-            if (lines.length>0) {
-                first = this.cleanArray(lines[0].replace(/[\s\s]+/gi, ' ').split(' ')).slice(0, (len/2));
-                last  = this.cleanArray(lines[lines.length-1].replace(/[\s\s]+/gi, ' ').split(' ')).slice(0, (len/2));
-                k     = first.concat(last);
+		if ( typeof ( settings.onEmphasisDone ) === "function" )
+		{
+			settings.onEmphasisDone();
+		}
 
-                max = (k.length>len) ? len : k.length;
-                for (i=0; i<max; i++) {
-                    key += k[i].substring(0, 1);
-                }
-            }
-        }
-        return key;
-    },
+		return ( this );
+	};
 
-    findKey: function(key) {
-    /*  From a list of Keys, locate the Key and corresponding Paragraph */
-        var pl = this.paragraphList(),
-          ln = pl.keys.length,
-          ix = false,
-          el = false,
-          i, ls, le;
-
-        for (i=0;i<ln;i++) {
-            if (key===pl.keys[i]) { // Direct Match
-                return { index: i, elm: pl.list[i] };
-            } else { // Look for 1st closest Match
-                if (!ix) {
-                      ls = this.lev(key.slice(0, 3), pl.keys[i].slice(0, 3));
-                      le = this.lev(key.slice(-3)  , pl.keys[i].slice(-3));
-                    if ((ls+le)<3) {
-                        ix = i;
-                        el = pl.list[i];
-                    }
-                }
-            }
-        }
-        return { index: ix, elm: el };
-    },
-
-    goAnchor: function(p) {
-    /*  Move view to top of a given Paragraph */
-        if (!p) {
-          return; 
-        }
-        var pg = (isNaN(p)) ? this.findKey(p)['elm'] : (this.paragraphList().list[p-1] || false);
-        
-        if (pg) {
-            setTimeout(function(){
-                $(window).scrollTop($(pg).offset().top);
-            }, 500);
-        }
-    },
-
-    goHighlight: function(h, s) {
-    /*  Highlight a Paragraph, or specific Sentences within it */
-        if (!h) {
-          return;
-        }
-        var hLen = h.length,
-          i, para, sntns, multi, lines, jLen, j, k, line;
-
-        for (i=0; i<hLen; i++) {
-            para = this.paragraphList().list[h[i]-1] || false;
-            if (para) {
-                sntns = s[h[i].toString()] || false;
-                multi = !sntns || sntns.length===0; // Individual sentences, or whole paragraphy?
-                lines = this.getSentences(para);
-                jLen  = lines.length;
-
-            /*  First pass. Add SPAN tags to all lines. */
-                for (j=0; j<jLen; j++) {
-                    k = (multi) ? j : sntns[j]-1;
-                    lines[j] = "<span data-num='" + (j+1) + "'>" + lines[j] + "</span>";
-                }
-
-            /*  Second pass, update span to Highlight selected lines */
-                for (j=0; j<jLen; j++) {
-                    k    = (multi) ? j : sntns[j]-1;
-                    line = lines[k] || false;
-                    if (line) {
-                        lines[k] = lines[k].replace("<span", "<span class='" + this.classHighlight + "'");
-                    }
-                }
-
-                para.setAttribute("data-sentences", jLen);
-                para.innerHTML = lines.join('. ').replace(/__DOT__/g, ".").replace(/<\/span>\./g, ".<\/span>");
-                $(para).addClass('emReady'); /* Mark the paragraph as having SPANs */
-            }
-        }
-    },
-
-    getSentences: function(el) {
-    /*  Break a Paragraph into Sentences, bearing in mind that the "." is not the definitive way to do so */
-        var html    = (typeof el==="string") ? el : el.innerHTML,
-          mrsList = "Mr,Ms,Mrs,Miss,Msr,Dr,Gov,Pres,Sen,Prof,Gen,Rep,St,Messrs,Col,Sr,Jf,Ph,Sgt,Mgr,Fr,Rev,No,Jr,Snr",
-          topList = "A,B,C,D,E,F,G,H,I,J,K,L,M,m,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,etc,oz,cf,viz,sc,ca,Ave,St",
-          geoList = "Calif,Mass,Penn,AK,AL,AR,AS,AZ,CA,CO,CT,DC,DE,FL,FM,GA,GU,HI,IA,ID,IL,IN,KS,KY,LA,MA,MD,ME,MH,MI,MN,MO,MP,MS,MT,NC,ND,NE,NH,NJ,NM,NV,NY,OH,OK,OR,PA,PR,PW,RI,SC,SD,TN,TX,UT,VA,VI,VT,WA,WI,WV,WY,AE,AA,AP,NYC,GB,IRL,IE,UK,GB,FR",
-          numList = "0,1,2,3,4,5,6,7,8,9",
-          webList = "aero,asia,biz,cat,com,coop,edu,gov,info,int,jobs,mil,mobi,museum,name,net,org,pro,tel,travel,xxx",
-          extList = "www",
-          d       = "__DOT__",
-
-          list = (topList+","+geoList+","+numList+","+extList).split(","),
-          len  = list.length,
-          i, lines;
-        
-        for (i=0;i<len;i++) {
-            html = html.replace(new RegExp((" "+list[i]+"\\."), "g"), (" "+list[i]+d));
-        }
-
-        list = (mrsList+","+numList).split(",");
-        len  = list.length;
-        for (i=0;i<len;i++) {
-            html = html.replace(new RegExp((list[i]+"\\."), "g"), (list[i]+d));
-        }
-
-        list = (webList).split(",");
-        len  = list.length;
-        for (i=0;i<len;i++) {
-            html = html.replace(new RegExp(("\\."+list[i]), "g"), (d+list[i]));
-        }
-
-        lines = this.cleanArray(html.split('. '));
-        return lines;
-    },
-
-    ordinal: function(n) {
-        var sfx = ["th","st","nd","rd"], 
-          val = n%100;
-        return n + (sfx[(val-20)%10] || sfx[val] || sfx[0]);
-    },
-
-    lev: function(a, b) {
-    /*  Get the Levenshtein distance - a measure of difference between two sequences */
-        var m = a.length,
-          n = b.length,
-          r = [],
-          c, o, i, j;
-          
-          r[0] = [];
-        
-        if (m < n) { c = a; a = b; b = c; o = m; m = n; n = o; }
-        for (c = 0; c < n+1; c++) { r[0][c] = c; }
-        for (i = 1; i < m+1; i++) {
-            r[i] = [];
-            r[i][0] = i;
-            for (j=1; j<n+1; j++) {
-                r[i][j] = this.smallest(r[i-1][j]+1, r[i][j-1]+1, r[i-1][j-1]+((a.charAt(i-1)===b.charAt(j-1))? 0 : 1));
-            }
-        }
-        return r[m][n];
-    },
-
-    smallest: function(x,y,z) {
-    /*  Return smallest of two values */
-        if (x < y && x < z) { return x; }
-        if (y < x && y < z) { return y; }
-        return z;
-    },
-
-    rtrim: function(txt) {
-    /*  Trim whitespace from right of string */
-        return txt.replace(/\s+$/, "");
-    },
-
-    cleanArray: function(a){
-    /*  Remove empty items from an array */
-        var n = [],
-          i;
-        for (i = 0; i<a.length; i++){
-            if (a[i] && a[i].replace(/ /g,'').length>0){ n.push(a[i]); }
-        }
-        return n;
-    }
-
-};
-
-$(window).bind('load', function() {
-  Emphasis.init();  
-});
-
-});
+} )( jQuery );
