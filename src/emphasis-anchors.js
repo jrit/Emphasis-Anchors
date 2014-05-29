@@ -204,7 +204,7 @@ SOFTWARE.
 				var $p = $( this );
 				if ( ( $p.text() || "" ).replace( / /g, "" ).length > 0 )
 				{
-					$p.attr( settings.dataKeyAttribute, createParagrahKey( $p ) ); // Unique Key
+					$p.attr( settings.dataKeyAttribute, createParagraphKey( $p ) ); // Unique Key
 					$p.attr( settings.dataOrdinalAttribute, created ); // Order
 					created++;
 				}
