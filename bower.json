@@ -1,0 +1,28 @@
+{
+  "name": "emphasis-anchors",
+  "version": "0.1.0",
+  "homepage": "https://github.com/jrit/Emphasis-Anchors",
+  "authors": [
+    "Jarrett Widman <jarrett.widman@vokalinteractive.com>"
+  ],
+  "description": "jQuery plugin to create and navigate to specific paragraphs based on content matching. Based on NYT Emphasis.",
+  "main": "js/emphasis-src.js",
+  "moduleType": [
+    "globals"
+  ],
+  "keywords": [
+    "emphasis",
+    "anchors",
+    "deep-linking",
+    "paragraph",
+    "anchors"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
