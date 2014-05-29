@@ -6,8 +6,14 @@ and is intended to only provide consistent content deep-linking.
 
 This is a real jQuery plugin, unlike NYT Emphasis.
 
-Options
--------------
+## Install
+
+`bower install emphasis-anchors` or just download the source from github.
+
+You can easily minify with Grunt if desired.
+
+
+## Options
 
 To initialize emphasis-anchors do something like
 
@@ -33,18 +39,16 @@ For real utility, you'll want to be using something that consumes those data att
 
 Out of the box, emphasis-anchors will jump down to any matching or close to matching
 paragraphs if it finds a hash when the page loads. It will also add the `anchorTargetClass`
-and after that is done call `onMovedToAnchor` which is enough to do basic paragraph
+to the matched paragraph and after that is done call `onMovedToAnchor` which is enough to do basic paragraph
 highlighting and generally know when the user has been delivered to your content.
 
 
-Dependencies
-------------
+## Dependencies
 
 jQuery (Tested with 1.7)
 
 
-Thanks
-------
+## Thanks
 
 Levenshtein calculation in the script is based on some nice code by Andrew Hedges
 http://andrew.hedges.name/experiments/levenshtein/
