@@ -59,7 +59,38 @@ SOFTWARE.
 			return ( key );
 		},
 
-		/*  Break a Paragraph into Sentences, bearing in mind that the "." is not the definitive way to do so */
+		/*
+		 * From text, generate a Key
+		 */
+		createKey: function ( txt )
+		{
+			txt = txt.replace( /[^a-z\. ]+/gi, '' );
+
+			var key = "";
+			var len = 6;
+
+			if ( txt && txt.length > 1 )
+			{
+				var lines = this.getSentences( txt );
+				if ( lines.length > 0 )
+				{
+					var first = this.cleanArray( lines[0].replace( /[\s\s]+/gi, ' ' ).split( ' ' ) ).slice( 0, ( len / 2 ) );
+					var last = this.cleanArray( lines[lines.length - 1].replace( /[\s\s]+/gi, ' ' ).split( ' ' ) ).slice( 0, ( len / 2 ) );
+					var k = first.concat( last );
+
+					var max = ( k.length > len ) ? len : k.length;
+					for ( var i = 0; i < max; i++ )
+					{
+						key += k[i].substring( 0, 1 );
+					}
+				}
+			}
+			return ( key );
+		},
+
+		/*
+		 * Break a Paragraph into Sentences, bearing in mind that the "." is not the definitive way to do so
+		 */
 		getSentences: function ( el )
 		{
 			var html = ( typeof el === "string" ) ? el : el.innerHTML,
@@ -98,13 +129,6 @@ SOFTWARE.
 			return lines;
 		},
 
-		ordinal: function ( n )
-		{
-			var sfx = ["th", "st", "nd", "rd"];
-			var val = n % 100;
-			return n + ( sfx[( val - 20 ) % 10] || sfx[val] || sfx[0] );
-		},
-
 		/*  Get the Levenshtein distance - a measure of difference between two sequences */
 		lev: function ( a, b )
 		{
@@ -137,12 +161,6 @@ SOFTWARE.
 			return z;
 		},
 
-		/*  Trim whitespace from right of string */
-		rtrim: function ( txt )
-		{
-			return txt.replace( /\s+$/, "" );
-		},
-
 		/*  Remove empty items from an array */
 		cleanArray: function ( a )
 		{
@@ -171,56 +189,34 @@ SOFTWARE.
 				return $existing;
 			}
 
-			createAllKeys();
-
+			createAllParagraphKeys();
 			return $( "[" + settings.dataKeyAttribute + "]" );
 		};
 
 		/*
 		 * Generate keys for all the paragraphs
 		 */
-		var createAllKeys = function ()
+		var createAllParagraphKeys = function ()
 		{
 			var created = 0;
 			$paragraphs.each( function ()
 			{
-				var $pr = $( this );
-				if ( ( $pr.text() || "" ).replace( / /g, "" ).length > 0 )
+				var $p = $( this );
+				if ( ( $p.text() || "" ).replace( / /g, "" ).length > 0 )
 				{
-					$pr.attr( settings.dataKeyAttribute, createKey( $pr ) ); // Unique Key
-					$pr.attr( settings.dataOrdinalAttribute, created ); // Order
+					$p.attr( settings.dataKeyAttribute, createParagrahKey( $p ) ); // Unique Key
+					$p.attr( settings.dataOrdinalAttribute, created ); // Order
 					created++;
 				}
 			} );
 		};
-
+		
 		/*
 		 * From a Paragraph, generate a Key
 		 */
-		var createKey = function ( $p )
+		var createParagraphKey = function ( $p )
 		{
-			var key = "",
-				len = 6,
-				txt = ( $p.text() || '' ).replace( /[^a-z\. ]+/gi, '' ),
-				lines, first, last, k, max, i;
-
-			if ( txt && txt.length > 1 )
-			{
-				lines = util.getSentences( txt );
-				if ( lines.length > 0 )
-				{
-					first = util.cleanArray( lines[0].replace( /[\s\s]+/gi, ' ' ).split( ' ' ) ).slice( 0, ( len / 2 ) );
-					last = util.cleanArray( lines[lines.length - 1].replace( /[\s\s]+/gi, ' ' ).split( ' ' ) ).slice( 0, ( len / 2 ) );
-					k = first.concat( last );
-
-					max = ( k.length > len ) ? len : k.length;
-					for ( i = 0; i < max; i++ )
-					{
-						key += k[i].substring( 0, 1 );
-					}
-				}
-			}
-			return ( "paragraph" + key );
+			return ( "paragraph" + util.createKey( $p.text() || '' ) );
 		};
 
 		/*
@@ -290,7 +286,7 @@ SOFTWARE.
 
 		var $paragraphs = $( this );
 
-		createAllKeys();
+		createAllParagraphKeys();
 		goAnchor( findKey( util.getHashKey() ) );
 
 		if ( typeof ( settings.onEmphasisDone ) === "function" )

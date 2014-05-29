@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "homepage": "https://github.com/jrit/Emphasis-Anchors",
   "authors": [
-    "Jarrett Widman <jarrett.widman@vokalinteractive.com>"
+    "Jarrett Widman <jarrett.widman@vokalinteractive.com> (vokalinteractive.com)"
   ],
   "description": "jQuery plugin to create and navigate to specific paragraphs based on content matching. Based on NYT Emphasis.",
   "main": "js/emphasis-src.js",
