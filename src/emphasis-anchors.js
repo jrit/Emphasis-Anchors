@@ -55,7 +55,7 @@ SOFTWARE.
 		{
 			var hash = decodeURI( location.hash );
 			var findp = hash.match( /(paragraph[^[\]]*)/ );
-			var key = ( findp && findp.length > 0 ) ? findp[1] : false;
+			var key = ( findp && findp.length > 0 ) ? findp[1] : null;
 			return ( key );
 		},
 
@@ -179,7 +179,7 @@ SOFTWARE.
 	$.fn.emphasisAnchors = function ( options )
 	{
 		/*
-		 * Build a list of Paragrphs, keys, and add meta-data to each Paragraph in DOM, saves list for later re-use 
+		 * Build a list of Paragrphs, keys, and add meta-data to each Paragraph with data attributes
 		 */
 		var paragraphList = function ()
 		{
@@ -224,6 +224,11 @@ SOFTWARE.
 		 */
 		var findKey = function ( key )
 		{
+			if ( !key )
+			{
+				return $();
+			}
+
 			var $pl = paragraphList();
 			var ln = $pl.length;
 
